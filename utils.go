@@ -8,7 +8,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/mmatczuk/go-http-tunnel/log"
+	"github.com/myENA/go-http-tunnel/log"
 )
 
 type closeWriter interface {

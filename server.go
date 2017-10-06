@@ -18,10 +18,14 @@ import (
 
 	"golang.org/x/net/http2"
 
-	"github.com/mmatczuk/go-http-tunnel/id"
-	"github.com/mmatczuk/go-http-tunnel/log"
-	"github.com/mmatczuk/go-http-tunnel/proto"
+	"github.com/myENA/go-http-tunnel/id"
+	"github.com/myENA/go-http-tunnel/log"
+	"github.com/myENA/go-http-tunnel/proto"
 )
+
+type Notifier interface {
+	Notify(tunnels map[string]*proto.Tunnel, identifier id.ID)
+}
 
 // ServerConfig defines configuration for the Server.
 type ServerConfig struct {
@@ -35,6 +39,8 @@ type ServerConfig struct {
 	Listener net.Listener
 	// Logger is optional logger. If nil logging is disabled.
 	Logger log.Logger
+	// Notifier is optional notification function.
+	Notifier Notifier
 }
 
 // Server is responsible for proxying public connections to the client over a
@@ -296,6 +302,10 @@ func (s *Server) handleClient(conn net.Conn) {
 		"level", 1,
 		"action", "connected",
 	)
+
+	if s.config.Notifier != nil {
+		s.config.Notifier.Notify(tunnels, identifier)
+	}
 
 	return
 

@@ -1,4 +1,4 @@
-# Tunnel [![GoDoc](http://img.shields.io/badge/go-documentation-blue.svg?style=flat-square)](http://godoc.org/github.com/mmatczuk/go-http-tunnel) [![Go Report Card](https://goreportcard.com/badge/github.com/mmatczuk/go-http-tunnel)](https://goreportcard.com/report/github.com/mmatczuk/go-http-tunnel) [![Build Status](http://img.shields.io/travis/mmatczuk/go-http-tunnel.svg?style=flat-square)](https://travis-ci.org/mmatczuk/go-http-tunnel.svg?branch=master)
+# Tunnel [![GoDoc](http://img.shields.io/badge/go-documentation-blue.svg?style=flat-square)](http://godoc.org/github.com/myENA/go-http-tunnel) [![Go Report Card](https://goreportcard.com/badge/github.com/myENA/go-http-tunnel)](https://goreportcard.com/report/github.com/myENA/go-http-tunnel) [![Build Status](http://img.shields.io/travis/myENA/go-http-tunnel.svg?style=flat-square)](https://travis-ci.org/myENA/go-http-tunnel.svg?branch=master)
 
 Tunnel is fast and secure client/server package that enables proxying public connections to your local machine over a tunnel connection from the local machine to the public server. **It enables you to share your localhost when you dont't have a public IP or you are hidden by a firewall**.
 
@@ -13,7 +13,7 @@ It is based on HTTP/2 for speed and security. Server accepts TLS connection from
 
 ## Installation
 
-Download latest release from [here](https://github.com/mmatczuk/go-http-tunnel/releases/latest).  The release contains two executables:
+Download latest release from [here](https://github.com/myENA/go-http-tunnel/releases/latest).  The release contains two executables:
 
 * `tunneld` - the tunnel server, to be run on publicly available host like AWS or GCE
 * `tunnel` - the tunnel client, to be run on your local machine or in your private network
@@ -104,7 +104,7 @@ This will run HTTP server on port `80` and HTTPS (HTTP/2) server on port `443`. 
 Install the package:
 
 ```bash
-$ go get -u github.com/mmatczuk/go-http-tunnel
+$ go get -u github.com/myENA/go-http-tunnel
 ```
 
 The `tunnel` package is designed to be simple, extensible, with little dependencies. It is based on HTTP/2 for client server connectivity, this avoids usage of third party tools for multiplexing tunneled connections. HTTP/2 is faster, more stable and much more tested then any other multiplexing technology. You may see [benchmark](benchmark) comparing the `tunnel` package to a koding tunnel.
@@ -113,19 +113,19 @@ The `tunnel` package:
 
 * custom dialer and listener for `Client` and `Server`
 * easy modifications of HTTP proxy (based on [ReverseProxy](https://golang.org/pkg/net/http/httputil/#ReverseProxy))
-* proxy anything, [ProxyFunc](https://godoc.org/github.com/mmatczuk/go-http-tunnel#ProxyFunc) architecture
+* proxy anything, [ProxyFunc](https://godoc.org/github.com/myENA/go-http-tunnel#ProxyFunc) architecture
 * structured logs with go-kit compatible minimal logger interface
 
 See:
 
-* [ClientConfig](https://godoc.org/github.com/mmatczuk/go-http-tunnel#ClientConfig)
-* [ServerConfig](https://godoc.org/github.com/mmatczuk/go-http-tunnel#ServerConfig)
-* [ControlMessage](https://godoc.org/github.com/mmatczuk/go-http-tunnel/proto#ControlMessage)
+* [ClientConfig](https://godoc.org/github.com/myENA/go-http-tunnel#ClientConfig)
+* [ServerConfig](https://godoc.org/github.com/myENA/go-http-tunnel#ServerConfig)
+* [ControlMessage](https://godoc.org/github.com/myENA/go-http-tunnel/proto#ControlMessage)
 
 ## License
 
 Copyright (C) 2017 Michał Matczuk
 
-This project is distributed under the BSD-3 license. See the [LICENSE](https://github.com/mmatczuk/go-http-tunnel/blob/master/LICENSE) file for details.
+This project is distributed under the BSD-3 license. See the [LICENSE](https://github.com/myENA/go-http-tunnel/blob/master/LICENSE) file for details.
 
 GitHub star is always appreciated!
