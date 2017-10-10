@@ -15,29 +15,29 @@ import (
 	"github.com/myENA/go-http-tunnel/id"
 )
 
-type onDisconnectListener func(identifier id.ID)
+type OnDisconnectListener func(identifier id.ID)
 
 type connPair struct {
 	conn       net.Conn
 	clientConn *http2.ClientConn
 }
 
-type connPool struct {
+type ConnPool struct {
 	t        *http2.Transport
 	conns    map[string]connPair // key is host:port
-	listener onDisconnectListener
+	listener OnDisconnectListener
 	mu       sync.RWMutex
 }
 
-func newConnPool(t *http2.Transport, l onDisconnectListener) *connPool {
-	return &connPool{
+func newConnPool(t *http2.Transport, l OnDisconnectListener) *ConnPool {
+	return &ConnPool{
 		t:        t,
 		listener: l,
 		conns:    make(map[string]connPair),
 	}
 }
 
-func (p *connPool) GetClientConn(req *http.Request, addr string) (*http2.ClientConn, error) {
+func (p *ConnPool) GetClientConn(req *http.Request, addr string) (*http2.ClientConn, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 
@@ -48,7 +48,7 @@ func (p *connPool) GetClientConn(req *http.Request, addr string) (*http2.ClientC
 	return nil, errClientNotConnected
 }
 
-func (p *connPool) MarkDead(c *http2.ClientConn) {
+func (p *ConnPool) MarkDead(c *http2.ClientConn) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -64,7 +64,7 @@ func (p *connPool) MarkDead(c *http2.ClientConn) {
 	}
 }
 
-func (p *connPool) AddConn(conn net.Conn, identifier id.ID) error {
+func (p *ConnPool) AddConn(conn net.Conn, identifier id.ID) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -86,7 +86,7 @@ func (p *connPool) AddConn(conn net.Conn, identifier id.ID) error {
 	return nil
 }
 
-func (p *connPool) DeleteConn(identifier id.ID) {
+func (p *ConnPool) DeleteConn(identifier id.ID) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -101,15 +101,15 @@ func (p *connPool) DeleteConn(identifier id.ID) {
 	}
 }
 
-func (p *connPool) URL(identifier id.ID) string {
+func (p *ConnPool) URL(identifier id.ID) string {
 	return fmt.Sprint("https://", identifier)
 }
 
-func (p *connPool) addr(identifier id.ID) string {
+func (p *ConnPool) addr(identifier id.ID) string {
 	return fmt.Sprint(identifier.String(), ":443")
 }
 
-func (p *connPool) addrToIdentifier(addr string) id.ID {
+func (p *ConnPool) addrToIdentifier(addr string) id.ID {
 	identifier := id.ID{}
 	identifier.UnmarshalText([]byte(addr[:len(addr)-4]))
 	return identifier

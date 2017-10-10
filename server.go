@@ -16,16 +16,13 @@ import (
 	"strings"
 	"time"
 
-	"golang.org/x/net/http2"
-
 	"github.com/myENA/go-http-tunnel/id"
 	"github.com/myENA/go-http-tunnel/log"
 	"github.com/myENA/go-http-tunnel/proto"
+	"golang.org/x/net/http2"
 )
 
-type Notifier interface {
-	Notify(tunnels map[string]*proto.Tunnel, identifier id.ID)
-}
+type OnConnectListener func(tunnels map[string]*proto.Tunnel, identifier id.ID)
 
 // ServerConfig defines configuration for the Server.
 type ServerConfig struct {
@@ -40,7 +37,9 @@ type ServerConfig struct {
 	// Logger is optional logger. If nil logging is disabled.
 	Logger log.Logger
 	// Notifier is optional notification function.
-	Notifier Notifier
+	ConnNotify OnConnectListener
+	// DiscoNotifier is optional notification function
+	DiscoNotify OnDisconnectListener
 }
 
 // Server is responsible for proxying public connections to the client over a
@@ -49,7 +48,7 @@ type Server struct {
 	*registry
 	config     *ServerConfig
 	listener   net.Listener
-	connPool   *connPool
+	ConnPool   *ConnPool
 	httpClient *http.Client
 	logger     log.Logger
 }
@@ -76,7 +75,7 @@ func NewServer(config *ServerConfig) (*Server, error) {
 	t := &http2.Transport{}
 	pool := newConnPool(t, s.disconnected)
 	t.ConnPool = pool
-	s.connPool = pool
+	s.ConnPool = pool
 	s.httpClient = &http.Client{Transport: t}
 
 	return s, nil
@@ -215,7 +214,7 @@ func (s *Server) handleClient(conn net.Conn) {
 		goto reject
 	}
 
-	if err := s.connPool.AddConn(conn, identifier); err != nil {
+	if err := s.ConnPool.AddConn(conn, identifier); err != nil {
 		logger.Log(
 			"level", 2,
 			"msg", "adding connection failed",
@@ -225,7 +224,7 @@ func (s *Server) handleClient(conn net.Conn) {
 	}
 	inConnPool = true
 
-	req, err = http.NewRequest(http.MethodConnect, s.connPool.URL(identifier), nil)
+	req, err = http.NewRequest(http.MethodConnect, s.ConnPool.URL(identifier), nil)
 	if err != nil {
 		logger.Log(
 			"level", 2,
@@ -303,8 +302,8 @@ func (s *Server) handleClient(conn net.Conn) {
 		"action", "connected",
 	)
 
-	if s.config.Notifier != nil {
-		s.config.Notifier.Notify(tunnels, identifier)
+	if s.config.ConnNotify != nil {
+		s.config.ConnNotify(tunnels, identifier)
 	}
 
 	return
@@ -317,7 +316,7 @@ reject:
 
 	if inConnPool {
 		s.notifyError(err, identifier)
-		s.connPool.DeleteConn(identifier)
+		s.ConnPool.DeleteConn(identifier)
 	}
 
 	conn.Close()
@@ -329,7 +328,7 @@ func (s *Server) notifyError(serverError error, identifier id.ID) {
 		return
 	}
 
-	req, err := http.NewRequest(http.MethodConnect, s.connPool.URL(identifier), nil)
+	req, err := http.NewRequest(http.MethodConnect, s.ConnPool.URL(identifier), nil)
 	if err != nil {
 		s.logger.Log(
 			"level", 2,
@@ -405,7 +404,7 @@ rollback:
 // Unsubscribe removes client from registry, disconnects client if already
 // connected and returns it's RegistryItem.
 func (s *Server) Unsubscribe(identifier id.ID) *RegistryItem {
-	s.connPool.DeleteConn(identifier)
+	s.ConnPool.DeleteConn(identifier)
 	return s.registry.Unsubscribe(identifier)
 }
 
@@ -576,6 +575,11 @@ func (s *Server) proxyHTTP(identifier id.ID, r *http.Request, msg *proto.Control
 	defer pw.Close()
 
 	req, err := s.connectRequest(identifier, msg, pr)
+
+	pctx := r.Context()
+	if pctx != nil {
+		req = req.WithContext(pctx)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("proxy request error: %s", err)
 	}
@@ -628,7 +632,7 @@ func (s *Server) proxyHTTP(identifier id.ID, r *http.Request, msg *proto.Control
 // control message and data input stream, output data stream results from
 // response the created request.
 func (s *Server) connectRequest(identifier id.ID, msg *proto.ControlMessage, r io.Reader) (*http.Request, error) {
-	req, err := http.NewRequest(http.MethodPut, s.connPool.URL(identifier), r)
+	req, err := http.NewRequest(http.MethodPut, s.ConnPool.URL(identifier), r)
 	if err != nil {
 		return nil, fmt.Errorf("could not create request: %s", err)
 	}

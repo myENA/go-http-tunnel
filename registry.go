@@ -159,6 +159,18 @@ func (r *registry) set(i *RegistryItem, identifier id.ID) error {
 	return nil
 }
 
+// Item - fetch RegistryItem by ID.  If it doesn't exist,
+// or has a void registration, return nil
+func (r *registry) Item(identifier id.ID) *RegistryItem {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	i, ok := r.items[identifier]
+	if !ok || i == voidRegistryItem {
+		return nil
+	}
+	return i
+}
+
 func (r *registry) clear(identifier id.ID) *RegistryItem {
 	r.logger.Log(
 		"level", 2,
