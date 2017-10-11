@@ -73,7 +73,11 @@ func NewServer(config *ServerConfig) (*Server, error) {
 	}
 
 	t := &http2.Transport{}
-	pool := newConnPool(t, s.disconnected)
+	l := s.Disconnected
+	if config.DiscoNotify != nil {
+		l = config.DiscoNotify
+	}
+	pool := newConnPool(t, l)
 	t.ConnPool = pool
 	s.ConnPool = pool
 	s.httpClient = &http.Client{Transport: t}
@@ -98,7 +102,7 @@ func listener(config *ServerConfig) (net.Listener, error) {
 
 // disconnected clears resources used by client, it's invoked by connection pool
 // when client goes away.
-func (s *Server) disconnected(identifier id.ID) {
+func (s *Server) Disconnected(identifier id.ID) {
 	s.logger.Log(
 		"level", 1,
 		"action", "disconnected",
