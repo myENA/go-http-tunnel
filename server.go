@@ -22,7 +22,20 @@ import (
 	"golang.org/x/net/http2"
 )
 
-type OnConnectListener func(tunnels map[string]*proto.Tunnel, identifier id.ID)
+// DiscoNotifier - this interface provides a DiscoNotify method
+type DiscoNotifier interface {
+	// DiscoNotify is called on client disconnect.
+	DiscoNotify(identifier id.ID)
+}
+
+// ConnDiscoNotifier - this interfaces implements the DiscoNotifier
+// interface, as well as providing a ConnNotify method.
+type ConnDiscoNotifier interface {
+	DiscoNotifier
+
+	// ConnNotify is called on client connect.
+	ConnNotify(tunnels map[string]*proto.Tunnel, identifier id.ID)
+}
 
 // ServerConfig defines configuration for the Server.
 type ServerConfig struct {
@@ -36,10 +49,10 @@ type ServerConfig struct {
 	Listener net.Listener
 	// Logger is optional logger. If nil logging is disabled.
 	Logger log.Logger
-	// Notifier is optional notification function.
-	ConnNotify OnConnectListener
-	// DiscoNotifier is optional notification function
-	DiscoNotify OnDisconnectListener
+	// Notifier is optional notification on disconnects.  If it additionally
+	// implements ConnDisconnNotifier interface, ConnNotify will be called
+	// when a client connects.
+	Notifier DiscoNotifier
 }
 
 // Server is responsible for proxying public connections to the client over a
@@ -73,11 +86,10 @@ func NewServer(config *ServerConfig) (*Server, error) {
 	}
 
 	t := &http2.Transport{}
-	l := s.Disconnected
-	if config.DiscoNotify != nil {
-		l = config.DiscoNotify
+	if config.Notifier == nil {
+		config.Notifier = s
 	}
-	pool := newConnPool(t, l)
+	pool := newConnPool(t, config.Notifier)
 	t.ConnPool = pool
 	s.ConnPool = pool
 	s.httpClient = &http.Client{Transport: t}
@@ -100,9 +112,12 @@ func listener(config *ServerConfig) (net.Listener, error) {
 	return tls.Listen("tcp", config.Addr, config.TLSConfig)
 }
 
-// disconnected clears resources used by client, it's invoked by connection pool
-// when client goes away.
-func (s *Server) Disconnected(identifier id.ID) {
+// DiscoNotify clears resources used by client, it's invoked by connection pool
+// when client goes away.  This is the default DiscoNotifier, and is called
+// in the absence of one.  If you set DiscoNotifier to something other than this
+// method, you will need to have that method call this DiscoNotify or cleanup will not
+// occur.
+func (s *Server) DiscoNotify(identifier id.ID) {
 	s.logger.Log(
 		"level", 1,
 		"action", "disconnected",
@@ -218,7 +233,7 @@ func (s *Server) handleClient(conn net.Conn) {
 		goto reject
 	}
 
-	if err := s.ConnPool.AddConn(conn, identifier); err != nil {
+	if err = s.ConnPool.AddConn(conn, identifier); err != nil {
 		logger.Log(
 			"level", 2,
 			"msg", "adding connection failed",
@@ -306,8 +321,8 @@ func (s *Server) handleClient(conn net.Conn) {
 		"action", "connected",
 	)
 
-	if s.config.ConnNotify != nil {
-		s.config.ConnNotify(tunnels, identifier)
+	if cn, ok := s.config.Notifier.(ConnDiscoNotifier); ok {
+		cn.ConnNotify(tunnels, identifier)
 	}
 
 	return
@@ -580,10 +595,8 @@ func (s *Server) proxyHTTP(identifier id.ID, r *http.Request, msg *proto.Control
 
 	req, err := s.connectRequest(identifier, msg, pr)
 
-	pctx := r.Context()
-	if pctx != nil {
-		req = req.WithContext(pctx)
-	}
+	// honor upstream request context deadlines
+	req = req.WithContext(r.Context())
 	if err != nil {
 		return nil, fmt.Errorf("proxy request error: %s", err)
 	}

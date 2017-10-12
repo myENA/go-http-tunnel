@@ -15,21 +15,20 @@ import (
 	"github.com/myENA/go-http-tunnel/id"
 )
 
-type OnDisconnectListener func(identifier id.ID)
-
 type connPair struct {
 	conn       net.Conn
 	clientConn *http2.ClientConn
 }
 
+// ConnPool - describes a connection pool
 type ConnPool struct {
 	t        *http2.Transport
 	conns    map[string]connPair // key is host:port
-	listener OnDisconnectListener
+	listener DiscoNotifier
 	mu       sync.RWMutex
 }
 
-func newConnPool(t *http2.Transport, l OnDisconnectListener) *ConnPool {
+func newConnPool(t *http2.Transport, l DiscoNotifier) *ConnPool {
 	return &ConnPool{
 		t:        t,
 		listener: l,
@@ -37,6 +36,7 @@ func newConnPool(t *http2.Transport, l OnDisconnectListener) *ConnPool {
 	}
 }
 
+// GetClientConn - this implements http2.ClientConnPool
 func (p *ConnPool) GetClientConn(req *http.Request, addr string) (*http2.ClientConn, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -48,6 +48,7 @@ func (p *ConnPool) GetClientConn(req *http.Request, addr string) (*http2.ClientC
 	return nil, errClientNotConnected
 }
 
+// MarkDead - this implements http2.ClientConnPool
 func (p *ConnPool) MarkDead(c *http2.ClientConn) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -57,13 +58,14 @@ func (p *ConnPool) MarkDead(c *http2.ClientConn) {
 			cp.conn.Close()
 			delete(p.conns, addr)
 			if p.listener != nil {
-				p.listener(p.addrToIdentifier(addr))
+				p.listener.DiscoNotify(p.AddrToIdentifier(addr))
 			}
 			return
 		}
 	}
 }
 
+// AddConn - This adds a connection to the pool.
 func (p *ConnPool) AddConn(conn net.Conn, identifier id.ID) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -86,6 +88,8 @@ func (p *ConnPool) AddConn(conn net.Conn, identifier id.ID) error {
 	return nil
 }
 
+// DeleteConn  - This deletes a connection from the pool, sending
+// a notification.
 func (p *ConnPool) DeleteConn(identifier id.ID) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -96,11 +100,12 @@ func (p *ConnPool) DeleteConn(identifier id.ID) {
 		cp.conn.Close()
 		delete(p.conns, addr)
 		if p.listener != nil {
-			p.listener(identifier)
+			p.listener.DiscoNotify(identifier)
 		}
 	}
 }
 
+// URL - this generates a URL from an identifier.
 func (p *ConnPool) URL(identifier id.ID) string {
 	return fmt.Sprint("https://", identifier)
 }
@@ -109,7 +114,8 @@ func (p *ConnPool) addr(identifier id.ID) string {
 	return fmt.Sprint(identifier.String(), ":443")
 }
 
-func (p *ConnPool) addrToIdentifier(addr string) id.ID {
+// AddrToIdentifier - Converts an address, as generated from URL, back into an ID
+func (p *ConnPool) AddrToIdentifier(addr string) id.ID {
 	identifier := id.ID{}
 	identifier.UnmarshalText([]byte(addr[:len(addr)-4]))
 	return identifier

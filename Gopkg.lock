@@ -21,6 +21,12 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/mmatczuk/go-http-tunnel"
+  packages = [".","id","log","proto","tunnelmock"]
+  revision = "97ac39f415563cb040d5b4ff9d3370618d22ff2d"
+
+[[projects]]
+  branch = "master"
   name = "golang.org/x/net"
   packages = ["context","http2","http2/hpack","idna","lex/httplex"]
   revision = "0a9397675ba34b2845f758fe3cd68828369c6517"
@@ -40,6 +46,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "5f9ce2cfc77119828bda8371ed4da5c6a78ad469287571a166b9f412fecb73ae"
+  inputs-digest = "c8c570443fdc1fc55bed3cbcc40837a665d04b32c48524f061475ac991efd5f6"
   solver-name = "gps-cdcl"
   solver-version = 1
