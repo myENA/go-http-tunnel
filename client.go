@@ -119,7 +119,7 @@ func (c *Client) Start() error {
 		err = c.serverErr
 
 		// detect disconnect hiccup
-		if err == nil && now.Sub(c.lastDisconnect).Seconds() < 5 {
+		if err == nil && now.Sub(c.lastDisconnect).Seconds() < 3 {
 			err = fmt.Errorf("connection is being cut")
 		}
 
