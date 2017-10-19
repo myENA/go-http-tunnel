@@ -37,6 +37,16 @@ type ConnDiscoNotifier interface {
 	ConnNotify(tunnels map[string]*proto.Tunnel, identifier id.ID)
 }
 
+// RegChecker - this interface allows us to plug in an external
+// checker for a registry on client connect.
+type RegChecker interface {
+
+	// CheckRegistration - if returns true, it will auto-register.
+	// a client.  This allows us to hook into a registration database
+	// instead of keeping all possible registrations in memory.
+	CheckRegistration(id.ID) bool
+}
+
 // ServerConfig defines configuration for the Server.
 type ServerConfig struct {
 	// Addr is TCP address to listen for client connections. If empty ":0"
@@ -50,9 +60,12 @@ type ServerConfig struct {
 	// Logger is optional logger. If nil logging is disabled.
 	Logger log.Logger
 	// Notifier is optional notification on disconnects.  If it additionally
-	// implements ConnDisconnNotifier interface, ConnNotify will be called
+	// implements ConnDiscoNotifier interface, ConnNotify will be called
 	// when a client connects.
 	Notifier DiscoNotifier
+
+	// Optional RegChecker implementation, for doing dynamic registrations.
+	RegChecker RegChecker
 }
 
 // Server is responsible for proxying public connections to the client over a
@@ -216,7 +229,22 @@ func (s *Server) handleClient(conn net.Conn) {
 
 	logger = logger.With("identifier", identifier)
 
-	if !s.IsSubscribed(identifier) {
+	if s.config.RegChecker != nil {
+		if s.config.RegChecker.CheckRegistration(identifier) {
+			if !s.IsSubscribed(identifier) {
+				s.Subscribe(identifier)
+			}
+		} else {
+			if s.IsSubscribed(identifier) {
+				s.Unsubscribe(identifier)
+			}
+			logger.Log("level", 2,
+				"msg", "client not subscribed",
+			)
+			goto reject
+		}
+	} else if !s.IsSubscribed(identifier) {
+
 		logger.Log(
 			"level", 2,
 			"msg", "unknown client",
