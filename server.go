@@ -284,7 +284,7 @@ func (s *Server) handleClient(conn net.Conn) {
 	{
 		ctx, cancel := context.WithTimeout(context.Background(), DefaultTimeout)
 		defer cancel()
-		req.WithContext(ctx)
+		req = req.WithContext(ctx)
 	}
 	resp, err = s.httpClient.Do(req)
 	if err != nil {
