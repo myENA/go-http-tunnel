@@ -128,7 +128,7 @@ func (r *registry) set(i *RegistryItem, identifier id.ID) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	j, ok := r.items[identifier]
+	_, ok := r.items[identifier]
 	if !ok {
 		return errClientNotSubscribed
 	}
