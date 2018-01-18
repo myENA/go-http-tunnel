@@ -132,9 +132,6 @@ func (r *registry) set(i *RegistryItem, identifier id.ID) error {
 	if !ok {
 		return errClientNotSubscribed
 	}
-	if j != voidRegistryItem {
-		return fmt.Errorf("attempt to overwrite registry item")
-	}
 
 	if i.Hosts != nil {
 		for _, h := range i.Hosts {
